@@ -11,9 +11,7 @@ ODOO_USER="postgres"
 DB_NAME="cevaxin"
 BACKUP_DIR="/home/ubuntu/backups/daily"
 ZIP_FILE="cevaxin_every-1-days_${date}.zip"
-
 WEBHOOK_URL="https://defaultabb3ef5786a0471b9edc8cd878fbbc.b7.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/7a2bb4721715434ca186d52deb831715/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=DtolxmIipRoEvgwGuI5a63QqFoSDj0Jg79rOcIVdTRQ"
-
 RDS_HOST="cevaxin-instance-1.cyp2wb66kbx8.us-east-1.rds.amazonaws.com"
 ODOO_SERVICE="instance-d23edcb3-bc34-4c0a-b264-41ef29a3e20d"
 FILESTORE_SRC="/opt/odoo/data_dir/filestore/cevaxin/"
@@ -116,6 +114,12 @@ sudo cp -r "$FILESTORE_SRC" "$BACKUP_DIR/filestore"
 cd "$BACKUP_DIR"
 log "Comprimiendo backup"
 sudo zip -r "$ZIP_FILE" dump.sql filestore >/dev/null
+
+#######################################
+# Limpieza intermedia (dump + filestore)
+#######################################
+sudo rm -f "$BACKUP_DIR/dump.sql"
+sudo rm -rf "$BACKUP_DIR/filestore"
 
 #######################################
 # Tamaño

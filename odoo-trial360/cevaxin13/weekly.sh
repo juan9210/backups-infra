@@ -118,6 +118,12 @@ log "Comprimiendo backup"
 sudo zip -r "$ZIP_FILE" dump.sql filestore >/dev/null
 
 #######################################
+# Limpieza intermedia (dump + filestore)
+#######################################
+sudo rm -f "$BACKUP_DIR/dump.sql"
+sudo rm -rf "$BACKUP_DIR/filestore"
+
+#######################################
 # Tamaño
 #######################################
 backup_size=$(du -h "$BACKUP_DIR/$ZIP_FILE" | cut -f1)

@@ -17,7 +17,7 @@ FILESTORE_SRC="/home/odoo/.local/share/Odoo/filestore/cevaxin16/"
 EVIDENCE_FILE="$BACKUP_DIR/cevaxin16.txt"
 S3_DEST="s3://backups-cevaxin/cevaxin-16/monthly/"
 
-WEBHOOK_URL="https://integraitsas.webhook.office.com/webhookb2/1ba8d5d1-5094-46ec-a19f-9b268ac313fc@abb3ef57-86a0-471b-9edc-8cd878fbbcb7/IncomingWebhook/8fb6636f47b940f9b368e9cd3c782e4b/a4e12f57-4499-48a6-b597-f28e3bed906c/V2XVYFdEhw2eSUO8uyT3P0cctU9GqBdyJX6RPbxe8tag81"
+WEBHOOK_URL="https://defaultabb3ef5786a0471b9edc8cd878fbbc.b7.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/7a2bb4721715434ca186d52deb831715/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=DtolxmIipRoEvgwGuI5a63QqFoSDj0Jg79rOcIVdTRQ"
 
 #######################################
 # Helpers
@@ -114,6 +114,12 @@ sudo cp -r "$FILESTORE_SRC" "$BACKUP_DIR/filestore"
 cd "$BACKUP_DIR"
 log "Comprimiendo backup"
 sudo zip -r "$ZIP_FILE" dump.sql filestore >/dev/null
+
+#######################################
+# Limpieza intermedia (dump + filestore)
+#######################################
+sudo rm -f "$BACKUP_DIR/dump.sql"
+sudo rm -rf "$BACKUP_DIR/filestore"
 
 #######################################
 # Tamaño
