@@ -1,28 +1,33 @@
 #!/bin/bash
 set -Eeuo pipefail
 
-############################
-# Variables (NO CAMBIADAS)
-############################
+#######################################
+# PATH y HOME (cron-safe)
+#######################################
+export PATH="/usr/local/bin:/usr/bin:/bin"
+export HOME="/home/ubuntu"
+
+#######################################
+# Variables
+#######################################
 date=$(date "+%Y-%m-%d_%H-%M-%S")
 start_time=$(date +%s)
 
-ODOO_USER="postgres"
-DB_NAME="cevaxin"
-BACKUP_DIR="/home/ubuntu/backups/deploy"
-ZIP_FILE="cevaxin_every-1-deploy_${date}.zip"
+ODOO_USER="odoo14"
+DB_NAME="holding"
+BACKUP_DIR="/home/ubuntu/backup/daily"
+ZIP_FILE="holding_every-1-days_${date}.zip"
+
+DB_HOST="127.0.0.1"
+FILESTORE_SRC="/opt/odoo14/.local/share/Odoo/filestore/holding"
+EVIDENCE_FILE="$BACKUP_DIR/holding.txt"
+S3_DEST="s3://holding-integra-backups/daily/"
 
 WEBHOOK_URL="https://defaultabb3ef5786a0471b9edc8cd878fbbc.b7.environment.api.powerplatform.com:443/powerautomate/automations/direct/workflows/7a2bb4721715434ca186d52deb831715/triggers/manual/paths/invoke?api-version=1&sp=%2Ftriggers%2Fmanual%2Frun&sv=1.0&sig=DtolxmIipRoEvgwGuI5a63QqFoSDj0Jg79rOcIVdTRQ"
 
-RDS_HOST="cevaxin-instance-1.cyp2wb66kbx8.us-east-1.rds.amazonaws.com"
-ODOO_SERVICE="instance-d23edcb3-bc34-4c0a-b264-41ef29a3e20d"
-FILESTORE_SRC="/opt/odoo/data_dir/filestore/cevaxin/"
-EVIDENCE_FILE="/home/ubuntu/backups/deploy/cevaxin_evidence.txt"
-S3_DEST="s3://backups-cevaxin/cevaxin-13/deploy/"
-
-############################
+#######################################
 # Helpers
-############################
+#######################################
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 
 json_escape() {
@@ -33,6 +38,9 @@ json_escape() {
   echo "$s"
 }
 
+#######################################
+# Adaptive Card
+#######################################
 send_adaptive_card() {
   local title message
   title="$(json_escape "$1")"
@@ -52,7 +60,7 @@ send_adaptive_card() {
 }
 
 #######################################
-# Error handler (NO limpia deploy)
+# Error handler
 #######################################
 on_error() {
   local code=$?
@@ -61,7 +69,7 @@ on_error() {
 
   send_adaptive_card "❌ Backup FALLÓ" \
 "Base de datos: $DB_NAME
-Servidor: cevaxin 13 deploy RDS
+Servidor: HOLDING (Odoo 14)
 Código: $code
 Línea: $LINENO
 Comando: $BASH_COMMAND
@@ -78,24 +86,18 @@ trap on_error ERR
 send_adaptive_card "🚀 Backup iniciado" \
 "Base de datos: $DB_NAME
 Fecha: $date
-Servidor: cevaxin 13 deploy RDS
+Servidor: HOLDING (Odoo 14)
 Destino: $S3_DEST"
 
 log "Iniciando backup $DB_NAME"
 
 #######################################
-# Reinicio del servicio
-#######################################
-log "Reiniciando servicio: $ODOO_SERVICE"
-sudo service "$ODOO_SERVICE" restart
-
-#######################################
-# Dump DB
+# Dump DB local
 #######################################
 log "Ejecutando pg_dump"
 sudo pg_dump \
   -U "$ODOO_USER" \
-  -h "$RDS_HOST" \
+  -h "$DB_HOST" \
   -Fp \
   --no-owner \
   --no-privileges \
@@ -118,15 +120,10 @@ log "Comprimiendo backup"
 sudo zip -r "$ZIP_FILE" dump.sql filestore >/dev/null
 
 #######################################
-# Limpieza intermedia (dump + filestore)
+# Limpieza intermedia
 #######################################
 sudo rm -f "$BACKUP_DIR/dump.sql"
 sudo rm -rf "$BACKUP_DIR/filestore"
-
-#######################################
-# Tamaño
-#######################################
-backup_size=$(du -h "$BACKUP_DIR/$ZIP_FILE" | cut -f1)
 
 #######################################
 # Evidencia
@@ -134,16 +131,17 @@ backup_size=$(du -h "$BACKUP_DIR/$ZIP_FILE" | cut -f1)
 ls -lh "$BACKUP_DIR" > "$EVIDENCE_FILE"
 
 #######################################
-# Subir a S3 (SIN sudo)
+# Subir a S3 (como ubuntu)
 #######################################
 log "Subiendo backup a S3"
 aws s3 sync "$BACKUP_DIR" "$S3_DEST"
 
 #######################################
-# Notificación éxito
+# Éxito
 #######################################
 end_time=$(date +%s)
 duration=$((end_time - start_time))
+backup_size=$(du -h "$BACKUP_DIR/$ZIP_FILE" | cut -f1)
 
 send_adaptive_card "✅ Backup finalizado" \
 "Base de datos: $DB_NAME
@@ -153,17 +151,10 @@ Duración: ${duration}s
 Destino: AWS S3"
 
 #######################################
-# ✅ LIMPIEZA TOTAL DE deploy (REAL)
-# solo si TODO salió bien
+# Limpieza TOTAL
 #######################################
 log "Limpiando completamente $BACKUP_DIR"
 sudo find "$BACKUP_DIR" -mindepth 1 -exec rm -rf -- {} +
-log "Carpeta deploy limpiada correctamente"
-
-#######################################
-# Reinicio final del servicio
-#######################################
-log "Reiniciando servicio: $ODOO_SERVICE"
-sudo service "$ODOO_SERVICE" restart
+log "Carpeta daily limpiada correctamente"
 
 log "Proceso finalizado correctamente"
